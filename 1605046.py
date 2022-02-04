@@ -45,9 +45,44 @@ class Convolution:
         print(self.filters)
 
 class Pooling:
-    def __init__(self):
-        poolLen = 1
+    def __init__(self, dim, stride):
+        self.dim = dim
+        self.stride = stride
+    
+    def forward(self, input):
+        out = []
+        for filter_index in range(input.shape[0]):
+            filtered = []
+            for i in range(0, input.shape[1], self.stride):
+                row = []
+                for j in range(0, input.shape[2], self.stride):
+                    subarr = input[filter_index, i:min(i+self.dim, input.shape[1]), j:min(j+self.dim, input.shape[2])]
+                    row.append(numpy.max(subarr))
+                filtered.append(row)
+            out.append(filtered)
+        out = numpy.array(out)
+        return out        
 
+class Activation:
+    def __init__(self):
+        a = 2
+    def forward(self, input):
+        out = numpy.where(input > 0, input, 0)
+        return out
+
+class FullyConnected:
+    def __init__(self, output_dim, input_dim):
+        self.out_dim = output_dim
+        self.in_dim = input_dim
+        input_size = input_dim[0]*input_dim[1]*input_dim[2]
+        self.bias = numpy.random.randint(0, 255, size = (output_dim, 1))
+        self.W = numpy.random.randint(0, 255, \
+            size = (output_dim, input_size))
+
+    def forward(self, input):
+        input = input.reshape(-1, 1)
+        out = numpy.matmul(self.W, input) + self.bias
+        return out
 
 channel_count, row_count, column_count =  train_images[0].shape
 # print(channel_count, row_count, column_count)
@@ -56,11 +91,12 @@ conv = Convolution((1, 2, 5), train_images[0].shape, 5, 1, 2)
 conv.forward(train_images[0])
 
 
-# arr = [[[1, 2, 3], [4, 5, 6], [7, 8, 9]], [[11, 12, 13], [14, 15, 16], [17, 18, 19]]]
-# arr = numpy.array(arr)
-# print(arr)
-# conv = Convolution((2, 2, 2), arr.shape, 1, 0, 2)
-# conv.forward(arr)
+
+arr = [[[1, -2, 3], [4, 5, 6], [7, 8, 9]], [[11, -12, 13], [14, -15, 16], [17, 18, 19]]]
+arr = numpy.array(arr)
+print(arr)
+conv = Activation()
+print(arr.reshape(1, -1))
 
 # print(numpy.max(arr))
 
