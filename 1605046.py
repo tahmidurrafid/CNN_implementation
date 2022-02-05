@@ -1,4 +1,5 @@
 from copy import deepcopy
+from multiprocessing import Pool
 import idx2numpy
 import numpy
 import cv2
@@ -61,6 +62,7 @@ class Pooling:
         self.stride = stride
     
     def forward(self, input):
+        self.input = input
         out = numpy.zeros((input.shape[0], (input.shape[1] - self.dim)//self.stride + 1,\
              (input.shape[2] - self.dim)//self.stride + 1, input.shape[3] ))
         for m in range(input.shape[0]):
@@ -69,9 +71,31 @@ class Pooling:
                     for j in range(0, input.shape[2] - self.dim + 1, self.stride):
                         subarr = input[m, i:i+self.dim, j:j+self.dim, filter_index]
                         out[m, i//self.stride, j//self.stride, filter_index] = numpy.max(subarr)
-                        # row.append(numpy.max(subarr))
-        return out        
+        return out
+    
+    def backward(self, dZ):
+        d_input = numpy.zeros(self.input.shape)
+        for m in range(self.input.shape[0]):
+            for filter_index in range(self.input.shape[3]):
+                for i in range(0, self.input.shape[1] - self.dim + 1, self.stride):
+                    for j in range(0, self.input.shape[2] - self.dim + 1, self.stride):
+                        subarr = self.input[m, i:i+self.dim, j:j+self.dim, filter_index]
+                        subMaxIndex = numpy.unravel_index(numpy.argmax(subarr), subarr.shape)
+                        d_input[m, i+subMaxIndex[0], j + subMaxIndex[1], filter_index] += dZ[m, i//self.stride, j//self.stride, filter_index]
+        return d_input
 
+numpy.random.seed(1)
+A_prev = numpy.random.randn(5, 5, 3, 2)
+hparameters = {"stride" : 1, "f": 2}
+dA = numpy.random.randn(5, 4, 2, 2)
+
+pool = Pooling(2, 1)
+A = pool.forward(A_prev)
+dA_prev = pool.backward(dA)
+# print("mode = max")
+# print('mean of dA = ', numpy.mean(dA))
+# print('dA_prev[1,1] = ', dA_prev[1,1])  
+# print()
 
 class Activation:
     def __init__(self):
