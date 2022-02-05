@@ -7,42 +7,35 @@ train_images = 'mnist/train-images.idx3-ubyte'
 train_labels = 'mnist/train-labels.idx1-ubyte'
 train_images = idx2numpy.convert_from_file(train_images)
 train_labels = idx2numpy.convert_from_file(train_labels)
-train_images = numpy.array([x.reshape(1, 28, 28) for x in train_images])
+train_images = train_images.reshape(-1, 28, 28, 1)
 
 class Convolution:
-    def __init__(self, filter_dim, dim, filter_count, padding, stride):
+    def __init__(self, filter_dim, in_dim, padding, stride):
         self.padding = padding
         self.stride = stride
-        self.filter_count = filter_count
+        self.filter_count = filter_dim[3]
         self.filter_dim = filter_dim
-        self.out_dim = ((dim[1] + 2*self.padding - self.filter_dim[1])//self.stride + 1, \
-            (dim[2] + 2*self.padding - self.filter_dim[2])//self.stride  + 1)
-        
-        self.bias = numpy.random.randint(0, 255, size = filter_dim)
+        self.in_dim = in_dim
+        self.out_dim = (in_dim[0] , (in_dim[1] + 2*self.padding - self.filter_dim[0])//self.stride + 1, \
+            (in_dim[2] + 2*self.padding - self.filter_dim[1])//self.stride  + 1, self.filter_count)
+        self.bias = numpy.random.randint(0, 255, size = self.filter_count)
         self.filters = numpy.random.randint(0, 255, \
-            size = (self.filter_count , filter_dim[0],filter_dim[1], filter_dim[2]))
+            size = filter_dim)
     
     def forward(self, input):
-        padded = []
-        for i in range(len(input)):
-            padded.append(numpy.pad(input[i], self.padding, mode='constant'))            
-        input = numpy.array(padded)
-        out = []
-        for filter_index in range(self.filter_count):
-            filtered = []
-            for i in range(0, input.shape[1] - self.filter_dim[1] + 1, self.stride):
-                row = []
-                for j in range(0, input.shape[2] - self.filter_dim[2] + 1, self.stride):
-                    subarr = input[0:self.filter_dim[0], i:i+self.filter_dim[1], j:j+self.filter_dim[2]]
-                    subarr = subarr*self.filters[filter_index] + self.bias
-                    row.append(numpy.sum(subarr))
-                filtered.append(row)
-            out.append(filtered)
-        out = numpy.array(out)
+        self.input = input
+        input = numpy.pad(input, ((0,0), (self.padding, self.padding), (self.padding, self.padding), (0,0)), mode='constant', constant_values = (0,0))        
+        out = numpy.zeros(self.out_dim)
+        for m in range(input.shape[0]):
+            for filter_index in range(self.filter_count):
+                for i in range(0, input.shape[1] - self.filter_dim[0] + 1, self.stride):
+                    for j in range(0, input.shape[2] - self.filter_dim[1] + 1, self.stride):
+                        subarr = input[m, i:i+self.filter_dim[0], j:j+self.filter_dim[1], :]
+                        subarr = numpy.multiply(subarr, self.filters[:, :, :, filter_index])
+                        out[m, i//self.stride, j//self.stride, filter_index] = \
+                            numpy.sum(subarr) + float(self.bias[filter_index])
         return out
 
-    def print(self):
-        print(self.filters)
 
 class Pooling:
     def __init__(self, dim, stride):
@@ -50,18 +43,26 @@ class Pooling:
         self.stride = stride
     
     def forward(self, input):
-        out = []
-        for filter_index in range(input.shape[0]):
-            filtered = []
-            for i in range(0, input.shape[1], self.stride):
-                row = []
-                for j in range(0, input.shape[2], self.stride):
-                    subarr = input[filter_index, i:min(i+self.dim, input.shape[1]), j:min(j+self.dim, input.shape[2])]
-                    row.append(numpy.max(subarr))
-                filtered.append(row)
-            out.append(filtered)
-        out = numpy.array(out)
+        out = numpy.zeros((input.shape[0], (input.shape[1] - self.dim)//self.stride + 1,\
+             (input.shape[2] - self.dim)//self.stride + 1, input.shape[3] ))
+        for m in range(input.shape[0]):
+            for filter_index in range(input.shape[3]):
+                for i in range(0, input.shape[1] - self.dim + 1, self.stride):
+                    for j in range(0, input.shape[2] - self.dim + 1, self.stride):
+                        subarr = input[m, i:i+self.dim, j:j+self.dim, filter_index]
+                        out[m, i//self.stride, j//self.stride, filter_index] = numpy.max(subarr)
+                        # row.append(numpy.max(subarr))
         return out        
+
+numpy.random.seed(1)
+A_prev = numpy.random.randn(2, 5, 5, 3)
+# hparameters = {"stride" : 1, "f": 3}
+pool = Pooling(3, 1)
+A = pool.forward(A_prev)
+print("mode = max")
+print("A.shape = " + str(A.shape))
+print("A =\n", A)
+print()
 
 class Activation:
     def __init__(self):
@@ -82,21 +83,27 @@ class FullyConnected:
     def forward(self, input):
         input = input.reshape(-1, 1)
         out = numpy.matmul(self.W, input) + self.bias
+        return out.reshape(-1)
+
+class Softmax:
+    def forward(self, input):
+        out = numpy.exp(input)
+        out = out/numpy.sum(out)
         return out
 
 channel_count, row_count, column_count =  train_images[0].shape
+
+
 # print(channel_count, row_count, column_count)
+# conv = Convolution((1, 2, 5), train_images[0].shape, 5, 1, 2)
+# conv.forward(train_images[0])
 
-conv = Convolution((1, 2, 5), train_images[0].shape, 5, 1, 2)
-conv.forward(train_images[0])
+# arr = [[[1, -2, 3], [4, 5, 6], [7, 8, 9]], [[11, -12, 13], [14, -15, 16], [17, 18, 19]]]
+# arr = numpy.array(arr)
+# print(arr)
+# conv = FullyConnected(10, arr.shape)
+# print(conv.forward(arr))
 
-
-
-arr = [[[1, -2, 3], [4, 5, 6], [7, 8, 9]], [[11, -12, 13], [14, -15, 16], [17, 18, 19]]]
-arr = numpy.array(arr)
-print(arr)
-conv = Activation()
-print(arr.reshape(1, -1))
 
 # print(numpy.max(arr))
 
