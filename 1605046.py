@@ -25,6 +25,7 @@ class Convolution:
     def forward(self, input):
         self.input = input
         input = numpy.pad(input, ((0,0), (self.padding, self.padding), (self.padding, self.padding), (0,0)), mode='constant', constant_values = (0,0))        
+        self.padded_input = input
         out = numpy.zeros(self.out_dim)
         for m in range(input.shape[0]):
             for filter_index in range(self.filter_count):
@@ -35,6 +36,23 @@ class Convolution:
                         out[m, i//self.stride, j//self.stride, filter_index] = \
                             numpy.sum(subarr) + float(self.bias[filter_index])
         return out
+
+    def backward(self, dZ):
+        db = numpy.zeros(self.bias.shape)
+        dA_padded = numpy.zeros(self.padded_input.shape)
+        dW = numpy.zeros(self.filters.shape)
+        for m in range(self.padded_input.shape[0]):
+            for filter_index in range(self.filter_count):
+                for i in range(0, self.padded_input.shape[1] - self.filter_dim[0] + 1, self.stride):
+                    for j in range(0, self.padded_input.shape[2] - self.filter_dim[1] + 1, self.stride):
+                        subarr = self.padded_input[m, i:i+self.filter_dim[0], j:j+self.filter_dim[1], :]
+                        dW[:, :, :, filter_index] += subarr*dZ[m, i//self.stride, j//self.stride, filter_index]
+                        dA_padded[m, i:i+self.filter_dim[0], j:j+self.filter_dim[1], :] += self.filters[:,:,:,filter_index] * \
+                            dZ[m, i//self.stride, j//self.stride, filter_index]
+        for filter_index in range(self.filter_count):
+            db[filter_index] = numpy.sum(dZ[:, :, :, filter_index])
+        self.dA = dA_padded[:, self.padding:dA_padded.shape[1]-self.padding , self.padding:dA_padded.shape[2]-self.padding ,:]
+        return self.dA
 
 
 class Pooling:
@@ -54,15 +72,6 @@ class Pooling:
                         # row.append(numpy.max(subarr))
         return out        
 
-numpy.random.seed(1)
-A_prev = numpy.random.randn(2, 5, 5, 3)
-# hparameters = {"stride" : 1, "f": 3}
-pool = Pooling(3, 1)
-A = pool.forward(A_prev)
-print("mode = max")
-print("A.shape = " + str(A.shape))
-print("A =\n", A)
-print()
 
 class Activation:
     def __init__(self):

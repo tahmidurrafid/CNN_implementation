@@ -116,18 +116,33 @@ def conv_forward(A_prev, W, b, hparameters):
     
     return Z, cache
 
-np.random.randn(100)
+# np.random.randn(100)
 
 np.random.seed(1)
-A_prev = np.random.randn(10,5,7,4)
-W = np.random.randn(3,3,4,8)
+A_prev = np.random.randn(10,4,4,3)
+W = np.random.randn(2,2,3,8)
 b = np.random.randn(1,1,1,8)
-hparameters = {"pad" : 1,
+hparameters = {"pad" : 2,
                "stride": 2}
-
 Z, cache_conv = conv_forward(A_prev, W, b, hparameters)
-# print(Z.shape)
-print("Z's mean =\n", np.mean(Z))
-print("Z[3,2,1] =\n", Z[3,2,1])
-print(A_prev)
-# print("cache_conv[0][1][2][3] =\n", cache_conv[0][1][2][3])
+print(np.mean(Z))
+# Test conv_backward
+# dA, dW, db = conv_backward(Z, cache_conv)
+# print("dA_mean =", np.mean(dA))
+# print("dW_mean =", np.mean(dW))
+# print("db_mean =", np.mean(db))
+
+
+# np.random.seed(1)
+# A_prev = np.random.randn(10,5,7,4)
+# W = np.random.randn(3,3,4,8)
+# b = np.random.randn(1,1,1,8)
+# hparameters = {"pad" : 1,
+#                "stride": 2}
+
+# Z, cache_conv = conv_forward(A_prev, W, b, hparameters)
+# # print(Z.shape)
+# print("Z's mean =\n", np.mean(Z))
+# print("Z[3,2,1] =\n", Z[3,2,1])
+# print(A_prev)
+# # print("cache_conv[0][1][2][3] =\n", cache_conv[0][1][2][3])
